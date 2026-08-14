@@ -1,189 +1,241 @@
 import flet as ft
-import sqlite3
 
-def init_db():
-    conn = sqlite3.connect("notes.db")
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS notes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT,
-            content TEXT,
-            status TEXT DEFAULT 'active'
-        )
-    """)
-    conn.commit()
-    conn.close()
+class Note:
+    def __init__(self, title="", items=None, is_pinned=False, is_archived=False, color=None, reminder=None):
+        self.title = title
+        self.items = items if items is not None else []
+        self.is_pinned = is_pinned
+        self.is_archived = is_archived
+        self.color = color if color else "#1E1E2C"
+        self.reminder = reminder
 
 def main(page: ft.Page):
     page.title = "Qaydnomalar"
     page.theme_mode = ft.ThemeMode.DARK
-    page.padding = 0
-    init_db()
+    page.padding = 12
 
-    current_status = ["active"]
-
-    title_input = ft.TextField(
-        hint_text="Sarlavha", 
-        border=ft.InputBorder.NONE
-    )
-    content_input = ft.TextField(
-        hint_text="Qayd matni...", 
-        border=ft.InputBorder.NONE, 
-        multiline=True, 
-        expand=True
-    )
-
-    notes_grid = ft.GridView(
-        expand=True,
-        runs_count=2,
-        max_extent=200,
-        child_aspect_ratio=0.8,
-        spacing=10,
-        run_spacing=10,
-        padding=10
-    )
-
-    def load_notes():
-        notes_grid.controls.clear()
-        conn = sqlite3.connect("notes.db")
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT id, title, content FROM notes WHERE status = ? ORDER BY id DESC", 
-            (current_status[0],)
+    # Boshlang'ich qaydnomalar
+    notes = [
+        Note(
+            title="azimiy",
+            items=[{"text": "ggg", "checked": False}, {"text": "ggg", "checked": False}],
+            color="#252836"
         )
-        rows = cursor.fetchall()
-        conn.close()
+    ]
 
-        for note_id, title, content in rows:
-            lines = content.split("\n") if content else []
-            items = [ft.Checkbox(label=line.strip(), value=False) for line in lines if line.strip()]
-            display_title = title if title else (lines[0] if lines else "Sarlavhasiz")
-
-            card = ft.Card(
-                content=ft.Container(
-                    padding=10,
-                    content=ft.Column(
-                        controls=[
-                            ft.Text(display_title, size=16, weight=ft.FontWeight.BOLD),
-                            *items,
-                        ],
-                        scroll=ft.ScrollMode.AUTO,
-                    ),
-                ),
-            )
-            notes_grid.controls.append(card)
-        page.update()
-
-    def save_and_go_back(e=None):
-        title = title_input.value.strip() if title_input.value else ""
-        content = content_input.value.strip() if content_input.value else ""
-
-        if title or content:
-            conn = sqlite3.connect("notes.db")
-            cursor = conn.cursor()
-            cursor.execute(
-                "INSERT INTO notes (title, content, status) VALUES (?, ?, ?)", 
-                (title, content, current_status[0])
-            )
-            conn.commit()
-            conn.close()
-            
-        title_input.value = ""
-        content_input.value = ""
-        page.go("/")
-
-    def change_view(e):
-        index = e.control.selected_index
-        status_map = {0: "active", 1: "active", 2: "archive", 3: "trash"}
-        current_status[0] = status_map.get(index, "active")
-        
-        titles = {0: "Qaydnomalar", 1: "Eslatmalar", 2: "Arxiv", 3: "Chiqitdon"}
-        main_appbar.title.value = titles.get(index, "Qaydnomalar")
-        
+    # --- YON MENYU (DRAWER) ---
+    def close_drawer(e=None):
         drawer.open = False
-        load_notes()
+        page.update()
 
     drawer = ft.NavigationDrawer(
         controls=[
-            ft.Container(height=12),
-            ft.Text("   Google Keep", size=20, weight=ft.FontWeight.BOLD),
-            ft.Divider(),
-            ft.NavigationDrawerDestination(
-                icon=ft.Icons.LIGHTBULB, 
-                label="Qaydnomalar"
-            ),
-            ft.NavigationDrawerDestination(
-                icon=ft.Icons.NOTIFICATIONS, 
-                label="Eslatmalar"
-            ),
-            ft.NavigationDrawerDestination(
-                icon=ft.Icons.ARCHIVE, 
-                label="Arxiv"
-            ),
-            ft.NavigationDrawerDestination(
-                icon=ft.Icons.DELETE, 
-                label="Chiqitdon"
-            ),
+            ft.Container(height=20),
+            ft.ListTile(leading=ft.Icon(ft.icons.LIGHTBULB_OUTLINE), title=ft.Text("Qaydnomalar"), on_click=close_drawer),
+            ft.ListTile(leading=ft.Icon(ft.icons.ARCHIVE_OUTLINED), title=ft.Text("Arxiv"), on_click=close_drawer),
+            ft.ListTile(leading=ft.Icon(ft.icons.DELETE_OUTLINE), title=ft.Text("Savat"), on_click=close_drawer),
+        ]
+    )
+    page.drawer = drawer
+
+    # Crash bergan show_drawer e=None bilan to'g'rilandi
+    def show_drawer(e=None):
+        drawer.open = True
+        page.update()
+
+    # --- ESLATGICH MODAL OYNASI (Google Keep uslubida) ---
+    selected_date_text = ft.Text("14-avgust", size=14)
+    selected_time_text = ft.Text("23:30", size=14)
+    
+    repeat_dropdown = ft.Dropdown(
+        value="Takrorlanmaydi",
+        options=[
+            ft.dropdown.Option("Takrorlanmaydi"),
+            ft.dropdown.Option("Har kuni"),
+            ft.dropdown.Option("Har xafta"),
         ],
-        on_change=change_view
+        border_color=ft.colors.WHITE24,
+        text_size=14
     )
 
-    main_appbar = ft.AppBar(
-        leading=ft.IconButton(ft.Icons.MENU, on_click=lambda _: page.show_drawer(drawer)),
-        title=ft.Text("Qaydnomalar"),
+    active_note_holder = [None]
+
+    def close_reminder_dialog(e=None):
+        reminder_dialog.open = False
+        page.update()
+
+    def save_reminder(e=None):
+        if active_note_holder[0]:
+            active_note_holder[0].reminder = f"{selected_date_text.value}, {selected_time_text.value}"
+        reminder_dialog.open = False
+        render_notes()
+
+    reminder_dialog = ft.AlertDialog(
+        title=ft.Text("Qachon eslatilsin?", size=18, weight=ft.FontWeight.BOLD),
+        content=ft.Column(
+            controls=[
+                ft.ListTile(
+                    title=ft.Text("Sana", size=11, color=ft.colors.GREY_400),
+                    subtitle=selected_date_text,
+                    trailing=ft.Icon(ft.icons.ARROW_DROP_DOWN),
+                ),
+                ft.ListTile(
+                    title=ft.Text("Vaqt", size=11, color=ft.colors.GREY_400),
+                    subtitle=selected_time_text,
+                    trailing=ft.Icon(ft.icons.ARROW_DROP_DOWN),
+                ),
+                repeat_dropdown
+            ],
+            tight=True,
+            spacing=5
+        ),
+        actions=[
+            ft.TextButton("Bekor qilish", on_click=close_reminder_dialog),
+            ft.ElevatedButton("Saqlash", on_click=save_reminder, bgcolor=ft.colors.BLUE_700, color=ft.colors.WHITE),
+        ],
+        actions_alignment=ft.MainAxisAlignment.END,
     )
 
-    def route_change(e=None):
-        page.views.clear()
+    def open_reminder_dialog(note, e=None):
+        active_note_holder[0] = note
+        page.dialog = reminder_dialog
+        reminder_dialog.open = True
+        page.update()
+
+    # --- RANG VA MAVZU PALITRASI ---
+    def open_color_sheet(note, e=None):
+        def apply_color(color_code):
+            note.color = color_code
+            color_bs.open = False
+            render_notes()
+
+        palette_colors = ["#1E1E2C", "#4A1525", "#4A2800", "#3E4A00", "#004A38", "#12304A"]
         
-        page.views.append(
-            ft.View(
-                route="/",
-                controls=[
-                    main_appbar,
-                    notes_grid,
-                ],
-                floating_action_button=ft.FloatingActionButton(
-                    icon=ft.Icons.ADD, 
-                    on_click=lambda _: page.go("/create"),
-                )
+        color_bs = ft.BottomSheet(
+            content=ft.Container(
+                padding=20,
+                content=ft.Column([
+                    ft.Text("Rangni tanlang", weight=ft.FontWeight.BOLD),
+                    ft.Row([
+                        ft.IconButton(
+                            icon=ft.icons.LENS,
+                            icon_color=c,
+                            icon_size=32,
+                            on_click=lambda e, col=c: apply_color(col)
+                        ) for c in palette_colors
+                    ])
+                ], tight=True)
             )
         )
-        
-        if page.route == "/create":
-            page.views.append(
-                ft.View(
-                    route="/create",
-                    controls=[
-                        ft.AppBar(
-                            leading=ft.IconButton(ft.Icons.ARROW_BACK, on_click=save_and_go_back),
-                            title=ft.Text("Yangi qaydnoma"),
-                        ),
-                        ft.Container(
-                            padding=15,
-                            expand=True,
-                            content=ft.Column(
-                                controls=[
-                                    title_input,
-                                    ft.Divider(),
-                                    content_input
-                                ],
-                                expand=True
+        page.overlay.append(color_bs)
+        color_bs.open = True
+        page.update()
+
+    # --- QADASH VA ARXIVLASH ---
+    def toggle_pin(note, e=None):
+        note.is_pinned = not note.is_pinned
+        render_notes()
+
+    def toggle_archive(note, e=None):
+        note.is_archived = not note.is_archived
+        render_notes()
+
+    # --- EKRANDA CHIQARISH ---
+    pinned_container = ft.Column(spacing=10)
+    other_container = ft.Column(spacing=10)
+
+    def render_notes():
+        pinned_container.controls.clear()
+        other_container.controls.clear()
+
+        for note in notes:
+            if note.is_archived:
+                continue
+
+            card_content = ft.Column(spacing=5)
+            if note.title:
+                card_content.controls.append(ft.Text(note.title, weight=ft.FontWeight.BOLD, size=16))
+
+            for item in note.items:
+                card_content.controls.append(
+                    ft.Checkbox(label=item["text"], value=item["checked"])
+                )
+
+            if note.reminder:
+                card_content.controls.append(
+                    ft.Chip(
+                        label=ft.Text(note.reminder, size=11),
+                        leading=ft.Icon(ft.icons.ALARM, size=14)
+                    )
+                )
+
+            card = ft.Card(
+                color=note.color,
+                content=ft.Container(
+                    padding=12,
+                    content=ft.Column([
+                        ft.Row([
+                            ft.IconButton(
+                                icon=ft.icons.PUSHPIN if note.is_pinned else ft.icons.PUSHPIN_OUTLINED,
+                                on_click=lambda e, n=note: toggle_pin(n)
+                            ),
+                            ft.IconButton(
+                                icon=ft.icons.NOTIFICATIONS_NONE,
+                                on_click=lambda e, n=note: open_reminder_dialog(n)
+                            ),
+                            ft.IconButton(
+                                icon=ft.icons.ARCHIVE_OUTLINED,
+                                on_click=lambda e, n=note: toggle_archive(n)
+                            ),
+                            ft.IconButton(
+                                icon=ft.icons.PALETTE_OUTLINED,
+                                on_click=lambda e, n=note: open_color_sheet(n)
                             )
-                        )
-                    ]
+                        ], alignment=ft.MainAxisAlignment.END),
+                        card_content
+                    ])
                 )
             )
+
+            if note.is_pinned:
+                pinned_container.controls.append(card)
+            else:
+                other_container.controls.append(card)
+
         page.update()
-        load_notes()
 
-    def view_pop(e):
-        save_and_go_back()
+    # Appbar
+    page.app_bar = ft.AppBar(
+        leading=ft.IconButton(ft.icons.MENU, on_click=show_drawer),
+        title=ft.Text("Qaydnomalar"),
+        bgcolor=ft.colors.SURFACE_VARIANT
+    )
 
-    page.on_route_change = route_change
-    page.on_view_pop = view_pop
+    # Asosiy joylashuv
+    main_layout = ft.Column([
+        ft.Text("Qadanganlar", size=12, color=ft.colors.GREY_400, weight=ft.FontWeight.BOLD),
+        pinned_container,
+        ft.Divider(),
+        ft.Text("Boshqa qaydnomalar", size=12, color=ft.colors.GREY_400, weight=ft.FontWeight.BOLD),
+        other_container
+    ], scroll=ft.ScrollMode.AUTO)
 
-    route_change()
+    page.add(
+        main_layout,
+        ft.FloatingActionButton(icon=ft.icons.ADD, on_click=lambda e: print("Yangi qaydnoma"))
+    )
 
-ft.app(target=main)
+    render_notes()
+
+# Ilovaga assets va Splash Screen ulandi
+ft.app(
+    target=main,
+    assets_dir="assets",
+    splash=ft.SplashScreen(
+        content=ft.Container(
+            content=ft.Image(src="assets/icon.png", width=200),
+            alignment=ft.alignment.center,
+            bgcolor="#1E1E2C"
+        )
+    )
+)
