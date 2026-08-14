@@ -8,14 +8,9 @@ def main(page: ft.Page):
     page.padding = 10
     page.scroll = ft.ScrollMode.AUTO
 
-    # --- IKONKA VA RESURSLARNI XAVFSIZ TEKSHIRISH ---
-    icon_path = "assets/icon.png"
-    if not os.path.exists(icon_path):
-        icon_path = None  # Fayl topilmasa ilova crash bermaydi
-
-    # --- YUKLANISH (LOADING) EKRANI (SplashScreen o'rniga barqaror usul) ---
+    # --- YUKLANISH (LOADING) EKRANI ---
     loading_ring = ft.ProgressRing(width=30, height=30, stroke_width=3)
-    loading_text = ft.Text("Yuklanmoqda...", size=14, color=ft.colors.GREY)
+    loading_text = ft.Text("Yuklanmoqda...", size=14, color="grey")
     
     loading_container = ft.Container(
         content=ft.Column(
@@ -62,11 +57,11 @@ def main(page: ft.Page):
             notes_list_view.controls.append(
                 ft.Card(
                     content=ft.ListTile(
-                        leading=ft.Icon(ft.icons.NOTE_ALT_OUTLINED, color=ft.colors.GREEN),
+                        leading=ft.Icon("note_alt_outlined", color="green"),
                         title=ft.Text(note),
                         trailing=ft.IconButton(
-                            icon=ft.icons.DELETE_OUTLINE,
-                            icon_color=ft.colors.RED_400,
+                            icon="delete_outline",
+                            icon_color="red",
                             on_click=delete_note(idx)
                         )
                     )
@@ -78,29 +73,29 @@ def main(page: ft.Page):
         controls=[
             ft.Container(height=12),
             ft.NavigationDrawerDestination(
-                icon=ft.icons.TEXT_SNIPPETS_OUTLINED,
-                selected_icon=ft.icons.TEXT_SNIPPETS,
+                icon="text_snippets_outlined",
+                selected_icon="text_snippets",
                 label="Barcha qaydlar",
             ),
             ft.Divider(thickness=1),
             ft.NavigationDrawerDestination(
-                icon=ft.icons.INFO_OUTLINE,
+                icon="info_outline",
                 label="Dastur haqida",
             ),
         ]
     )
 
     # --- YUKLANISH TUGAGACH ASOSIY INTERFEYSNI CHIQARISH ---
-    page.clean()  # Loading kontainerini olib tashlaymiz
+    page.clean()
 
     page.appbar = ft.AppBar(
         leading=ft.IconButton(
-            icon=ft.icons.MENU, 
+            icon="menu", 
             on_click=lambda e: page.show_drawer(page.drawer)
         ),
         title=ft.Text("Qaydnoma App"),
         center_title=True,
-        bgcolor=ft.colors.SURFACE_VARIANT
+        bgcolor="#E0E0E0"
     )
 
     page.add(
@@ -110,15 +105,15 @@ def main(page: ft.Page):
                     [
                         note_input,
                         ft.FloatingActionButton(
-                            icon=ft.icons.ADD, 
+                            icon="add", 
                             on_click=add_note,
-                            bgcolor=ft.colors.GREEN_600,
-                            content_color=ft.colors.WHITE
+                            bgcolor="#2E7D32",
+                            content_color="white"
                         )
                     ],
                     alignment=ft.MainAxisAlignment.BETWEEN
                 ),
-                ft.Divider(height=10, color=ft.colors.TRANSPARENT),
+                ft.Divider(height=10, color="transparent"),
                 ft.Text("Mening qaydlarim:", size=16, weight=ft.FontWeight.BOLD),
                 notes_list_view
             ],
