@@ -103,7 +103,7 @@ def main(page: ft.Page):
                 ft.Text("Barcha muhim fikrlaringiz bir joyda", size=13, color="grey"),
             ]
         ),
-        margin=ft.margin.only(bottom=10)
+        padding=ft.padding.only(bottom=10)
     )
 
     input_box = ft.Container(
@@ -135,7 +135,7 @@ def main(page: ft.Page):
 
     search_box = ft.Container(
         content=search_field,
-        margin=ft.margin.only(top=10, bottom=10)
+        padding=ft.padding.only(top=10, bottom=10)
     )
 
     notes_header = ft.Row(
