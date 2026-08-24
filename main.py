@@ -1,13 +1,12 @@
 import flet as ft
 
 def main(page: ft.Page):
-    # --- PAGE SETTINGS ---
+    # --- PAGE CONFIGURATION ---
     page.title = "Qaydnoma AI"
     page.padding = 16
-    page.theme_mode = ft.ThemeMode.LIGHT
-    page.scroll = ft.ScrollMode.AUTO
+    page.scroll = "auto"  # Enum o'rniga xavfsiz string
 
-    # --- STATE ---
+    # --- STATE MANAGEMENT ---
     notes = []
 
     # --- INPUT CONTROLS ---
@@ -49,7 +48,7 @@ def main(page: ft.Page):
             )
         else:
             for idx, text in filtered:
-                # O'chirish funksiyasi uchun xavfsiz closure
+                # Indeks xatosiga qarshi xavfsiz closure
                 def make_delete_handler(index_to_delete):
                     def handle_delete(e):
                         if 0 <= index_to_delete < len(notes):
@@ -63,7 +62,7 @@ def main(page: ft.Page):
                             controls=[
                                 ft.Column(
                                     controls=[
-                                        ft.Text(text, size=15, weight=ft.FontWeight.W_500, expand=True)
+                                        ft.Text(text, size=15, weight="bold", expand=True)
                                     ],
                                     expand=True
                                 ),
@@ -72,8 +71,8 @@ def main(page: ft.Page):
                                     on_click=make_delete_handler(idx)
                                 )
                             ],
-                            alignment=ft.MainAxisAlignment.BETWEEN,
-                            vertical_alignment=ft.CrossAxisAlignment.CENTER
+                            alignment="spaceBetween",
+                            vertical_alignment="center"
                         ),
                         padding=12
                     )
@@ -99,7 +98,7 @@ def main(page: ft.Page):
     header = ft.Container(
         content=ft.Column(
             controls=[
-                ft.Text("📝 Qaydnoma App", size=24, weight=ft.FontWeight.BOLD, color="#1A237E"),
+                ft.Text("📝 Qaydnoma App", size=24, weight="bold", color="#1A237E"),
                 ft.Text("Barcha muhim fikrlaringiz bir joyda", size=13, color="grey"),
             ]
         ),
@@ -139,9 +138,9 @@ def main(page: ft.Page):
 
     notes_header = ft.Row(
         controls=[
-            ft.Text("Mening Qaydlarim", size=16, weight=ft.FontWeight.BOLD),
+            ft.Text("Mening Qaydlarim", size=16, weight="bold"),
         ],
-        alignment=ft.MainAxisAlignment.BETWEEN
+        alignment="spaceBetween"
     )
 
     # --- BUILD PAGE ---
