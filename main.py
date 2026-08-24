@@ -1,16 +1,16 @@
 import flet as ft
 
 def main(page: ft.Page):
-    # --- PAGE CONFIGURATION ---
+    # --- PAGE SETTINGS ---
     page.title = "Qaydnoma AI"
     page.padding = 16
     page.theme_mode = ft.ThemeMode.LIGHT
     page.scroll = ft.ScrollMode.AUTO
 
-    # --- STATE MANAGEMENT ---
+    # --- STATE ---
     notes = []
 
-    # --- UI CONTROLS ---
+    # --- INPUT CONTROLS ---
     input_field = ft.TextField(
         label="Yangi qaydnoma kiriting...",
         multiline=True,
@@ -21,30 +21,22 @@ def main(page: ft.Page):
 
     search_field = ft.TextField(
         label="Qaydlardan qidirish...",
-        dense=True,
-        on_change=lambda e: render_notes()
+        dense=True
     )
 
     notes_list = ft.Column(spacing=10)
 
-    # --- FUNCTIONS ---
-    def delete_note(index):
-        def _on_click(e):
-            if 0 <= index < len(notes):
-                notes.pop(index)
-                render_notes()
-        return _on_click
-
-    def render_notes():
+    # --- CORE LOGIC ---
+    def render_notes(e=None):
         notes_list.controls.clear()
         query = search_field.value.lower().strip() if search_field.value else ""
         
-        filtered_notes = [
+        filtered = [
             (idx, note) for idx, note in enumerate(notes) 
             if query in note.lower()
         ]
 
-        if not filtered_notes:
+        if not filtered:
             notes_list.controls.append(
                 ft.Container(
                     content=ft.Text(
@@ -52,40 +44,48 @@ def main(page: ft.Page):
                         color="grey",
                         size=14
                     ),
-                    padding=20,
-                    alignment=ft.alignment.center
+                    padding=20
                 )
             )
         else:
-            for idx, text in filtered_notes:
-                card_item = ft.Container(
-                    content=ft.Row(
-                        controls=[
-                            ft.Column(
-                                controls=[
-                                    ft.Text(text, size=15, weight=ft.FontWeight.W_500, expand=True)
-                                ],
-                                expand=True
-                            ),
-                            ft.OutlinedButton(
-                                content=ft.Text("O'chirish", color="red"),
-                                on_click=delete_note(idx)
-                            )
-                        ],
-                        alignment=ft.MainAxisAlignment.BETWEEN,
-                        vertical_alignment=ft.CrossAxisAlignment.CENTER
-                    ),
-                    padding=12,
-                    border=ft.border.all(1, "#D0D0D0"),
-                    border_radius=10,
-                    bgcolor="#FAFAFA"
+            for idx, text in filtered:
+                # O'chirish funksiyasi uchun xavfsiz closure
+                def make_delete_handler(index_to_delete):
+                    def handle_delete(e):
+                        if 0 <= index_to_delete < len(notes):
+                            notes.pop(index_to_delete)
+                            render_notes()
+                    return handle_delete
+
+                card_item = ft.Card(
+                    content=ft.Container(
+                        content=ft.Row(
+                            controls=[
+                                ft.Column(
+                                    controls=[
+                                        ft.Text(text, size=15, weight=ft.FontWeight.W_500, expand=True)
+                                    ],
+                                    expand=True
+                                ),
+                                ft.OutlinedButton(
+                                    content=ft.Text("O'chirish", color="red"),
+                                    on_click=make_delete_handler(idx)
+                                )
+                            ],
+                            alignment=ft.MainAxisAlignment.BETWEEN,
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER
+                        ),
+                        padding=12
+                    )
                 )
                 notes_list.controls.append(card_item)
 
         page.update()
 
+    search_field.on_change = render_notes
+
     def add_note_click(e):
-        text = input_field.value.strip()
+        text = input_field.value.strip() if input_field.value else ""
         if text:
             notes.append(text)
             input_field.value = ""
@@ -95,7 +95,7 @@ def main(page: ft.Page):
         notes.clear()
         render_notes()
 
-    # --- UI LAYOUT STRUCTURE ---
+    # --- UI LAYOUT ---
     header = ft.Container(
         content=ft.Column(
             controls=[
@@ -106,31 +106,30 @@ def main(page: ft.Page):
         padding=10
     )
 
-    input_box = ft.Container(
-        content=ft.Column(
-            controls=[
-                input_field,
-                ft.Row(
-                    controls=[
-                        ft.ElevatedButton(
-                            content=ft.Text("Qo'shish", size=15),
-                            bgcolor="#1E88E5",
-                            color="white",
-                            on_click=add_note_click,
-                            expand=True
-                        ),
-                        ft.OutlinedButton(
-                            content=ft.Text("Tozalash"),
-                            on_click=clear_all_click
-                        )
-                    ]
-                )
-            ]
-        ),
-        padding=10,
-        border=ft.border.all(1, "#E0E0E0"),
-        border_radius=12,
-        bgcolor="#FFFFFF"
+    input_box = ft.Card(
+        content=ft.Container(
+            content=ft.Column(
+                controls=[
+                    input_field,
+                    ft.Row(
+                        controls=[
+                            ft.ElevatedButton(
+                                content=ft.Text("Qo'shish", size=15),
+                                bgcolor="#1E88E5",
+                                color="white",
+                                on_click=add_note_click,
+                                expand=True
+                            ),
+                            ft.OutlinedButton(
+                                content=ft.Text("Tozalash"),
+                                on_click=clear_all_click
+                            )
+                        ]
+                    )
+                ]
+            ),
+            padding=10
+        )
     )
 
     search_box = ft.Container(
@@ -145,7 +144,7 @@ def main(page: ft.Page):
         alignment=ft.MainAxisAlignment.BETWEEN
     )
 
-    # --- ADD TO PAGE ---
+    # --- BUILD PAGE ---
     page.add(
         header,
         input_box,
@@ -155,7 +154,6 @@ def main(page: ft.Page):
         notes_list
     )
 
-    # Initial Render
     render_notes()
 
 if __name__ == "__main__":
